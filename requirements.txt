@@ -1,0 +1,27 @@
+
+# Backend framework
+fastapi
+uvicorn[standard]
+python-multipart
+
+# Image processing
+opencv-python-headless
+Pillow
+
+# Data analysis
+numpy
+pandas
+
+# Data visualization
+matplotlib
+seaborn
+
+# Machine learning evaluation
+scikit-learn
+
+# Model utilities
+joblib
+
+# Configuration and validation
+python-dotenv
+pydantic
