@@ -1,4 +1,10 @@
 
+import os
+
+# Reduce TensorFlow compilation overhead
+os.environ["TF_XLA_FLAGS"] = "--tf_xla_auto_jit=0"
+os.environ["TF_ENABLE_ONEDNN_OPTS"] = "0"
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -10,7 +16,6 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# Allow frontend applications to communicate with backend
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
