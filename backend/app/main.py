@@ -10,11 +10,11 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# Allow Next.js frontend to communicate with backend
+# Allow frontend applications to communicate with backend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
-    allow_credentials=True,
+    allow_origins=["*"],
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )

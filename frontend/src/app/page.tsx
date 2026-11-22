@@ -3,6 +3,10 @@
 
 import { useState, useEffect } from "react";
 
+const API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_URL ||
+  "http://127.0.0.1:8000";
+
 interface PredictionResult {
   prediction: string;
   confidence: number;
@@ -45,7 +49,7 @@ export default function Home() {
 
     try {
       const response = await fetch(
-        "http://127.0.0.1:8000/api/history"
+        `${API_BASE_URL}/api/history`
       );
 
       const data = await response.json();
@@ -55,7 +59,6 @@ export default function Home() {
       }
 
       setHistory(data.history || []);
-
     } catch (err) {
       console.error("History error:", err);
       setHistoryError(
@@ -74,7 +77,7 @@ export default function Home() {
 
     try {
       const response = await fetch(
-        "http://127.0.0.1:8000/api/statistics"
+        `${API_BASE_URL}/api/statistics`
       );
 
       const data = await response.json();
@@ -89,7 +92,6 @@ export default function Home() {
         pneumonia_cases: data.pneumonia_cases,
         average_confidence: data.average_confidence,
       });
-
     } catch (err) {
       console.error("Statistics error:", err);
       setStatsError(
@@ -144,7 +146,7 @@ export default function Home() {
 
     try {
       const response = await fetch(
-        "http://127.0.0.1:8000/api/predict",
+        `${API_BASE_URL}/api/predict`,
         {
           method: "POST",
           body: formData,
@@ -173,7 +175,6 @@ export default function Home() {
         fetchHistory(),
         fetchStatistics(),
       ]);
-
     } catch (err) {
       console.error("Prediction error:", err);
 
@@ -182,7 +183,6 @@ export default function Home() {
           ? err.message
           : "Unable to connect to backend."
       );
-
     } finally {
       setLoading(false);
     }
@@ -199,13 +199,15 @@ export default function Home() {
     setError("");
   };
 
-  const normalPercentage = statistics && statistics.total_predictions > 0
-    ? (statistics.normal_cases / statistics.total_predictions) * 100
-    : 0;
+  const normalPercentage =
+    statistics && statistics.total_predictions > 0
+      ? (statistics.normal_cases / statistics.total_predictions) * 100
+      : 0;
 
-  const pneumoniaPercentage = statistics && statistics.total_predictions > 0
-    ? (statistics.pneumonia_cases / statistics.total_predictions) * 100
-    : 0;
+  const pneumoniaPercentage =
+    statistics && statistics.total_predictions > 0
+      ? (statistics.pneumonia_cases / statistics.total_predictions) * 100
+      : 0;
 
   return (
     <main className="min-h-screen bg-[#07111f] text-white">
@@ -639,7 +641,7 @@ export default function Home() {
                     <th className="p-4">Image Name</th>
                     <th className="p-4">Prediction</th>
                     <th className="p-4">Confidence</th>
-                    <th className="p-4">Date & Time</th>
+                    <th className="p-4">Date &amp; Time</th>
                   </tr>
                 </thead>
 
