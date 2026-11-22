@@ -1,71 +1,32 @@
 
+import os
+import gc
+
+# Reduce TensorFlow memory and compilation overhead
+os.environ["TF_XLA_FLAGS"] = "--tf_xla_auto_jit=0"
+os.environ["TF_ENABLE_ONEDNN_OPTS"] = "0"
+
 import tensorflow as tf
 import numpy as np
 import cv2
-import os
-import base64
 
 MODEL_PATH = os.path.join(
     "model",
     "mobilenetv2_pneumonia.keras"
 )
 
-model = tf.keras.models.load_model(MODEL_PATH)
-
 IMAGE_SIZE = (224, 224)
-CLASS_NAMES = ["NORMAL", "PNEUMONIA"]
 
-# MobileNetV2 feature extraction layer
-base_model = model.layers[1]
+# Limit TensorFlow CPU threads
+tf.config.threading.set_intra_op_parallelism_threads(1)
+tf.config.threading.set_inter_op_parallelism_threads(1)
+tf.config.optimizer.set_jit(False)
 
-
-def make_gradcam_heatmap(img_array):
-
-    img_tensor = tf.convert_to_tensor(
-        img_array,
-        dtype=tf.float32
-    )
-
-    preprocessed = (
-        tf.keras.applications.mobilenet_v2.preprocess_input(
-            img_tensor
-        )
-    )
-
-    with tf.GradientTape() as tape:
-
-        conv_outputs = base_model(
-            preprocessed,
-            training=False
-        )
-
-        tape.watch(conv_outputs)
-
-        x = model.layers[2](conv_outputs)
-        x = model.layers[3](x, training=False)
-        predictions = model.layers[4](x)
-
-        loss = predictions[:, 0]
-
-    grads = tape.gradient(loss, conv_outputs)
-
-    pooled_grads = tf.reduce_mean(
-        grads,
-        axis=(0, 1, 2)
-    )
-
-    conv_outputs = conv_outputs[0]
-
-    heatmap = conv_outputs @ pooled_grads[..., tf.newaxis]
-    heatmap = tf.squeeze(heatmap)
-
-    heatmap = tf.maximum(heatmap, 0)
-
-    heatmap = heatmap / (
-        tf.reduce_max(heatmap) + 1e-8
-    )
-
-    return heatmap.numpy()
+# Load model without training optimizer state
+model = tf.keras.models.load_model(
+    MODEL_PATH,
+    compile=False
+)
 
 
 def predict_pneumonia(image_bytes):
@@ -83,84 +44,54 @@ def predict_pneumonia(image_bytes):
     if image is None:
         raise ValueError("Invalid image file")
 
-    original_image = cv2.cvtColor(
+    image = cv2.cvtColor(
         image,
         cv2.COLOR_BGR2RGB
     )
 
-    resized_image = cv2.resize(
-        original_image,
+    image = cv2.resize(
+        image,
         IMAGE_SIZE
     )
 
     input_image = np.expand_dims(
-        resized_image,
+        image,
         axis=0
     )
 
-    prediction = model.predict(
+    # Direct inference instead of model.predict()
+    output = model(
         input_image,
-        verbose=0
-    )[0][0]
+        training=False
+    )
+
+    prediction = float(
+        output.numpy().reshape(-1)[0]
+    )
 
     predicted_class = (
-        "PNEUMONIA" if prediction >= 0.5 else "NORMAL"
+        "PNEUMONIA"
+        if prediction >= 0.5
+        else "NORMAL"
     )
 
     confidence = (
-        float(prediction)
+        prediction
         if prediction >= 0.5
-        else float(1 - prediction)
+        else 1 - prediction
     )
 
-    # Generate Grad-CAM
-    heatmap = make_gradcam_heatmap(input_image)
-
-    heatmap = cv2.resize(
-        heatmap,
-        (224, 224)
-    )
-
-    heatmap_uint8 = np.uint8(255 * heatmap)
-
-    colored_heatmap = cv2.applyColorMap(
-        heatmap_uint8,
-        cv2.COLORMAP_JET
-    )
-
-    colored_heatmap = cv2.cvtColor(
-        colored_heatmap,
-        cv2.COLOR_BGR2RGB
-    )
-
-    overlay = cv2.addWeighted(
-        resized_image,
-        0.6,
-        colored_heatmap,
-        0.4,
-        0
-    )
-
-    # Convert overlay to Base64
-    overlay_bgr = cv2.cvtColor(
-        overlay,
-        cv2.COLOR_RGB2BGR
-    )
-
-    success, buffer = cv2.imencode(
-        ".png",
-        overlay_bgr
-    )
-
-    if not success:
-        raise ValueError("Grad-CAM image generation failed")
-
-    gradcam_base64 = base64.b64encode(
-        buffer
-    ).decode("utf-8")
-
-    return {
+    result = {
         "prediction": predicted_class,
         "confidence": round(confidence * 100, 2),
-        "gradcam": gradcam_base64
+        "gradcam": None
     }
+
+    del image_array
+    del image
+    del input_image
+    del output
+
+    gc.collect()
+
+    return result
